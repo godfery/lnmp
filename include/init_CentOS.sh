@@ -47,7 +47,7 @@ fi
 
 # closed Unnecessary services and remove obsolete rpm package
 for Service in `chkconfig --list | grep 3:on | awk '{print $1}' | grep -vE 'nginx|httpd|tomcat|mysqld|php-fpm|pureftpd|redis-server|memcached|supervisord|aegis'`;do chkconfig --level 3 $Service off;done
-for Service in sshd network crond iptables messagebus irqbalance syslog rsyslog sendmail;do chkconfig --level 3 $Service on;done
+for Service in sshd network crond  messagebus irqbalance syslog rsyslog sendmail;do chkconfig --level 3 $Service on;done
 
 # Close SELINUX
 setenforce 0
@@ -81,7 +81,7 @@ EOF
 
 # Set timezone
 rm -rf /etc/localtime
-ln -s /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+ln -s /usr/share/zoneinfo/America/Los_Angeles /etc/localtime
 
 # Set DNS
 #cat > /etc/resolv.conf << EOF
@@ -138,42 +138,11 @@ ntpdate pool.ntp.org
 [ -z "`grep 'ntpdate' /var/spool/cron/root`" ] && { echo "*/20 * * * * `which ntpdate` pool.ntp.org > /dev/null 2>&1" >> /var/spool/cron/root;chmod 600 /var/spool/cron/root; }
 service crond restart
 
-# iptables
-if [ -e '/etc/sysconfig/iptables' ] && [ -n "`grep ':INPUT DROP' /etc/sysconfig/iptables`" -a -n "`grep 'NEW -m tcp --dport 22 -j ACCEPT' /etc/sysconfig/iptables`" -a -n "`grep 'NEW -m tcp --dport 80 -j ACCEPT' /etc/sysconfig/iptables`" ];then
-    IPTABLES_STATUS=yes
-else
-    IPTABLES_STATUS=no
-fi 
-
-if [ "$IPTABLES_STATUS" == 'no' ];then
-    [ -e '/etc/sysconfig/iptables' ] && /bin/mv /etc/sysconfig/iptables{,_bk} 
-    cat > /etc/sysconfig/iptables << EOF
-# Firewall configuration written by system-config-securitylevel
-# Manual customization of this file is not recommended.
-*filter
-:INPUT DROP [0:0]
-:FORWARD ACCEPT [0:0]
-:OUTPUT ACCEPT [0:0]
-:syn-flood - [0:0]
--A INPUT -i lo -j ACCEPT
--A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
--A INPUT -p tcp -m state --state NEW -m tcp --dport 22 -j ACCEPT
--A INPUT -p tcp -m state --state NEW -m tcp --dport 80 -j ACCEPT
--A INPUT -p tcp -m state --state NEW -m tcp --dport 443 -j ACCEPT
--A INPUT -p icmp -m limit --limit 100/sec --limit-burst 100 -j ACCEPT
--A INPUT -p icmp -m limit --limit 1/s --limit-burst 10 -j ACCEPT
--A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,ACK SYN -j syn-flood
--A INPUT -j REJECT --reject-with icmp-host-prohibited
--A syn-flood -p tcp -m limit --limit 3/sec --limit-burst 6 -j RETURN
--A syn-flood -j REJECT --reject-with icmp-port-unreachable
-COMMIT
+cat >> /etc/security/limits.conf <<EOF
+01 3 * * * root /databackup/dbbackup.sh
+*/5 * * * * root /jiankong/jiankong.sh
 EOF
-fi
 
-FW_PORT_FLAG=`grep -ow "dport $SSH_PORT" /etc/sysconfig/iptables`
-[ -z "$FW_PORT_FLAG" -a "$SSH_PORT" != '22' ] && sed -i "s@dport 22 -j ACCEPT@&\n-A INPUT -p tcp -m state --state NEW -m tcp --dport $SSH_PORT -j ACCEPT@" /etc/sysconfig/iptables 
-service iptables restart
-service sshd restart
 
 # install tmux
 if [ ! -e "`which tmux`" ];then
