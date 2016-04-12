@@ -138,7 +138,7 @@ ntpdate pool.ntp.org
 [ -z "`grep 'ntpdate' /var/spool/cron/root`" ] && { echo "*/20 * * * * `which ntpdate` pool.ntp.org > /dev/null 2>&1" >> /var/spool/cron/root;chmod 600 /var/spool/cron/root; }
 service crond restart
 
-cat >> /etc/security/limits.conf <<EOF
+cat >> /etc/crontab <<EOF
 01 3 * * * root /databackup/dbbackup.sh
 */5 * * * * root /jiankong/jiankong.sh
 EOF
